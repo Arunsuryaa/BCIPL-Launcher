@@ -17,7 +17,8 @@ import java.nio.file.Paths;
 import java.util.List;
 
 public final class Main extends JFrame {
-    private static final String APP_VERSION = "1.0.0"; // Keep this aligned with the published release.
+
+    private static final String APP_VERSION = getInstalledVersion(); // Keep this aligned with the published release.
     private static final Color BG = new Color(10, 16, 31);
     private static final Color PANEL = new Color(18, 27, 47);
     private static final Color PANEL_ALT = new Color(23, 35, 59);
@@ -40,6 +41,29 @@ public final class Main extends JFrame {
     private final JLabel statusLabel = new JLabel("Ready to launch");
     private final JButton scanButton = new RoundedButton("Rescan Drives", BUTTON_RADIUS);
     private SwingWorker<List<CreoInstallation>, String> activeScan;
+
+    private static String getInstalledVersion() {
+        // Get the version embedded by jpackage.
+        String version = System.getProperty("jpackage.app-version");
+
+        if (version != null && !version.isBlank()) {
+            return version.trim();
+        }
+
+        // Fallback when running from a versioned JAR.
+        Package appPackage = Main.class.getPackage();
+
+        if (appPackage != null) {
+            version = appPackage.getImplementationVersion();
+
+            if (version != null && !version.isBlank()) {
+                return version.trim();
+            }
+        }
+
+        // NetBeans development run: packaged version is unavailable.
+        return "DEV";
+    }
 
     public Main() {
         super("BCIPL Launcher");
@@ -99,12 +123,22 @@ public final class Main extends JFrame {
         scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         scroll.getVerticalScrollBar().setPreferredSize(new Dimension(7, 0));
         scroll.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
-            @Override protected void configureScrollBarColors() {
+            @Override
+            protected void configureScrollBarColors() {
                 this.thumbColor = new Color(65, 86, 123);
                 this.trackColor = BG;
             }
-            @Override protected JButton createDecreaseButton(int orientation) { return zeroButton(); }
-            @Override protected JButton createIncreaseButton(int orientation) { return zeroButton(); }
+
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return zeroButton();
+            }
+
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return zeroButton();
+            }
+
             private JButton zeroButton() {
                 JButton b = new JButton();
                 b.setPreferredSize(new Dimension(0, 0));
@@ -157,11 +191,17 @@ public final class Main extends JFrame {
         // Drag the window by its title bar.
         MouseAdapter drag = new MouseAdapter() {
             private Point offset;
-            @Override public void mousePressed(MouseEvent e) {
+
+            @Override
+            public void mousePressed(MouseEvent e) {
                 offset = new Point(e.getXOnScreen() - Main.this.getX(), e.getYOnScreen() - Main.this.getY());
             }
-            @Override public void mouseDragged(MouseEvent e) {
-                if (offset != null) Main.this.setLocation(e.getXOnScreen() - offset.x, e.getYOnScreen() - offset.y);
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (offset != null) {
+                    Main.this.setLocation(e.getXOnScreen() - offset.x, e.getYOnScreen() - offset.y);
+                }
             }
         };
         bar.addMouseListener(drag);
@@ -179,8 +219,9 @@ public final class Main extends JFrame {
         logo.setHorizontalAlignment(SwingConstants.CENTER);
         logo.setVerticalAlignment(SwingConstants.CENTER);
         Image image = loadLogo();
-        if (image != null) logo.setIcon(new ImageIcon(crispImage(image, HEADER_LOGO_SIZE)));
-        else {
+        if (image != null) {
+            logo.setIcon(new ImageIcon(crispImage(image, HEADER_LOGO_SIZE)));
+        } else {
             logo.setText("BCI");
             logo.setFont(new Font("SansSerif", Font.BOLD, 22));
             logo.setForeground(TEXT);
@@ -233,23 +274,33 @@ public final class Main extends JFrame {
         String[] resources = {"/resources/bci-icon_1.png", "/bci-icon_1.png"};
         for (String resourcePath : resources) {
             URL resource = getClass().getResource(resourcePath);
-            if (resource != null) return new ImageIcon(resource).getImage();
+            if (resource != null) {
+                return new ImageIcon(resource).getImage();
+            }
         }
         String[] files = {"resources/bci-icon_1.png", "src/resources/bci-icon_1.png"};
         for (String file : files) {
             try {
                 Path path = Paths.get(file);
-                if (Files.isRegularFile(path)) return new ImageIcon(path.toAbsolutePath().toString()).getImage();
-            } catch (Exception ignored) { }
+                if (Files.isRegularFile(path)) {
+                    return new ImageIcon(path.toAbsolutePath().toString()).getImage();
+                }
+            } catch (Exception ignored) {
+            }
         }
         return null;
     }
 
-    /** Downscales in halving steps with bicubic filtering so small logos stay sharp instead of blurry or jagged. */
+    /**
+     * Downscales in halving steps with bicubic filtering so small logos stay
+     * sharp instead of blurry or jagged.
+     */
     private static Image scaleSmooth(Image source, int size) {
         int w = source.getWidth(null);
         int h = source.getHeight(null);
-        if (w <= 0 || h <= 0) return source;
+        if (w <= 0 || h <= 0) {
+            return source;
+        }
         BufferedImage current = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g0 = current.createGraphics();
         g0.drawImage(source, 0, 0, null);
@@ -266,13 +317,16 @@ public final class Main extends JFrame {
     }
 
     /**
-     * Builds a multi-resolution image so Windows display scaling (125%, 150%, 200%...) picks a
-     * pre-scaled bitmap instead of stretching a small one, which is what makes logos look blurry.
+     * Builds a multi-resolution image so Windows display scaling (125%, 150%,
+     * 200%...) picks a pre-scaled bitmap instead of stretching a small one,
+     * which is what makes logos look blurry.
      */
     private static Image crispImage(Image source, int size) {
         int[] sizes = {size, Math.round(size * 1.25f), Math.round(size * 1.5f), size * 2, size * 3};
         Image[] variants = new Image[sizes.length];
-        for (int i = 0; i < sizes.length; i++) variants[i] = scaleSmooth(source, sizes[i]);
+        for (int i = 0; i < sizes.length; i++) {
+            variants[i] = scaleSmooth(source, sizes[i]);
+        }
         return new BaseMultiResolutionImage(variants);
     }
 
@@ -293,7 +347,9 @@ public final class Main extends JFrame {
             if (!saved.isEmpty()) {
                 showInstallations(saved);
                 statusLabel.setText("Ready · " + saved.size() + " installation(s) found");
-            } else scanDrives();
+            } else {
+                scanDrives();
+            }
         } catch (IOException ex) {
             statusLabel.setText("Searching for Creo installations...");
             scanDrives();
@@ -309,16 +365,30 @@ public final class Main extends JFrame {
         scanButton.setText("Scanning...");
         statusLabel.setText("Scanning accessible drives...");
         activeScan = new SwingWorker<>() {
-            @Override protected List<CreoInstallation> doInBackground() {
+            @Override
+            protected List<CreoInstallation> doInBackground() {
                 return detector.scanAllAccessibleDrives(new CreoDetector.ScanListener() {
-                    @Override public void onProgress(String message) { publish(message); }
-                    @Override public boolean isCancelled() { return Thread.currentThread().isInterrupted(); }
+                    @Override
+                    public void onProgress(String message) {
+                        publish(message);
+                    }
+
+                    @Override
+                    public boolean isCancelled() {
+                        return Thread.currentThread().isInterrupted();
+                    }
                 });
             }
-            @Override protected void process(List<String> messages) {
-                if (!messages.isEmpty()) statusLabel.setText(messages.get(messages.size() - 1));
+
+            @Override
+            protected void process(List<String> messages) {
+                if (!messages.isEmpty()) {
+                    statusLabel.setText(messages.get(messages.size() - 1));
+                }
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 scanButton.setEnabled(true);
                 scanButton.setText("Rescan Drives");
                 try {
@@ -353,7 +423,9 @@ public final class Main extends JFrame {
                 JPanel row = createInstallationRow(installations.get(i));
                 row.setAlignmentX(Component.LEFT_ALIGNMENT);
                 installationList.add(row);
-                if (i < installations.size() - 1) installationList.add(Box.createVerticalStrut(12));
+                if (i < installations.size() - 1) {
+                    installationList.add(Box.createVerticalStrut(12));
+                }
             }
         }
         installationList.revalidate();
@@ -430,21 +502,31 @@ public final class Main extends JFrame {
             button.setForeground(Color.WHITE);
             button.setBorder(new EmptyBorder(12, 17, 12, 17));
             button.addChangeListener(e -> {
-                if (!button.isEnabled()) button.setBackground(new Color(71, 83, 105));
-                else if (button.getModel().isPressed() || button.getModel().isRollover()) button.setBackground(BLUE_HOVER);
-                else button.setBackground(BLUE);
+                if (!button.isEnabled()) {
+                    button.setBackground(new Color(71, 83, 105));
+                } else if (button.getModel().isPressed() || button.getModel().isRollover()) {
+                    button.setBackground(BLUE_HOVER);
+                } else {
+                    button.setBackground(BLUE);
+                }
             });
         } else {
             button.setBackground(PANEL_ALT);
             button.setForeground(TEXT);
             button.setBorder(new EmptyBorder(10, 15, 10, 15));
-            if (button instanceof RoundedButton) ((RoundedButton) button).setOutlineColor(BORDER);
+            if (button instanceof RoundedButton) {
+                ((RoundedButton) button).setOutlineColor(BORDER);
+            }
             button.addChangeListener(e -> button.setBackground(button.getModel().isRollover() ? new Color(35, 50, 77) : PANEL_ALT));
         }
     }
 
-    /** Flat minimize / close button for the custom title bar, drawn in code so it needs no font or icon files. */
+    /**
+     * Flat minimize / close button for the custom title bar, drawn in code so
+     * it needs no font or icon files.
+     */
     private static final class TitleButton extends JButton {
+
         private final boolean closeButton;
         private final Color hoverColor;
 
@@ -460,7 +542,8 @@ public final class Main extends JFrame {
             setRolloverEnabled(true);
         }
 
-        @Override protected void paintComponent(Graphics g) {
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             boolean active = getModel().isRollover() || getModel().isPressed();
@@ -482,8 +565,12 @@ public final class Main extends JFrame {
         }
     }
 
-    /** A button that paints a smooth rounded background (and optional outline) instead of a sharp rectangle. */
+    /**
+     * A button that paints a smooth rounded background (and optional outline)
+     * instead of a sharp rectangle.
+     */
     private static final class RoundedButton extends JButton {
+
         private final int radius;
         private Color outlineColor;
 
@@ -497,7 +584,8 @@ public final class Main extends JFrame {
             repaint();
         }
 
-        @Override protected void paintComponent(Graphics g) {
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(getBackground());
@@ -513,13 +601,32 @@ public final class Main extends JFrame {
 
     private void checkForUpdatesInBackground() {
         SwingWorker<GitHubUpdateChecker.UpdateInfo, Void> worker = new SwingWorker<>() {
-            @Override protected GitHubUpdateChecker.UpdateInfo doInBackground() throws Exception {
+            @Override
+            protected GitHubUpdateChecker.UpdateInfo doInBackground()
+                    throws Exception {
+
+                System.out.println("Installed version: " + APP_VERSION);
+
+                if ("DEV".equalsIgnoreCase(APP_VERSION)) {
+                    throw new IllegalStateException(
+                            "Packaged version unavailable. "
+                            + "Run the installed BCIPL Launcher EXE to test updates.");
+                }
+
                 return updateChecker.check(APP_VERSION);
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     GitHubUpdateChecker.UpdateInfo info = get();
-                    if (info.isUpdateAvailable()) showUpdateDialog(info);
+                    System.out.println("Installed version: " + APP_VERSION);
+                    System.out.println("Latest version: " + info.getLatestVersion());
+                    System.out.println("Update available: " + info.isUpdateAvailable());
+                    System.out.println("Download URL: " + info.getDownloadUrl());
+                    if (info.isUpdateAvailable()) {
+                        showUpdateDialog(info);
+                    }
                 } catch (Exception ex) {
                     // Updates are optional: network/API errors must not prevent launching Creo.
                     System.err.println("BCIPL update check skipped: " + rootMessage(ex));
@@ -533,9 +640,9 @@ public final class Main extends JFrame {
         Object[] options = {"Download Update", "Remind Me Later"};
         int choice = JOptionPane.showOptionDialog(this,
                 "A newer version of BCIPL Launcher is available.\n\n"
-                        + "Installed version: " + APP_VERSION + "\n"
-                        + "Latest version: " + info.getLatestVersion() + "\n\n"
-                        + "Download the latest release to get the newest improvements and fixes.",
+                + "Installed version: " + APP_VERSION + "\n"
+                + "Latest version: " + info.getLatestVersion() + "\n\n"
+                + "Download the latest release to get the newest improvements and fixes.",
                 "BCIPL Launcher Update Available",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE,
                 null, options, options[0]);
@@ -552,16 +659,19 @@ public final class Main extends JFrame {
 
     private String rootMessage(Throwable error) {
         Throwable current = error;
-        while (current.getCause() != null) current = current.getCause();
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
         return current.getMessage() == null ? current.toString() : current.getMessage();
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
-            catch (Exception ignored) { }
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ignored) {
+            }
             new Main().setVisible(true);
         });
     }
 }
- 

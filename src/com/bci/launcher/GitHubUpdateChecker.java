@@ -10,12 +10,18 @@ import java.time.Duration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Checks the latest public GitHub Release without blocking the Swing UI. */
+/**
+ * Checks the latest public GitHub Release without blocking the Swing UI.
+ */
 public final class GitHubUpdateChecker {
-    private static final String RELEASE_API =
-            "https://api.github.com/repos/Arunsuryaa/BCIPL-Launcher/releases/latest";
-    private static final String RELEASE_PAGE =
-            "https://github.com/Arunsuryaa/BCIPL-Launcher/releases/latest";
+
+    private static final String RELEASE_API
+            = "https://api.github.com/repos/Arunsuryaa/BCIPL-Launcher/releases/latest";
+    private static final String RELEASE_PAGE
+            = "https://github.com/Arunsuryaa/BCIPL-Launcher/releases/latest";
+
+    private static final String DOWNLOAD_PAGE
+            = "https://arunsuryaa.github.io/BCIPL-Launcher/";
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -43,10 +49,18 @@ public final class GitHubUpdateChecker {
         }
         String latestVersion = tag.replaceFirst("(?i)^v", "").trim();
         String downloadUrl = findExeAsset(json);
-        if (downloadUrl == null) downloadUrl = RELEASE_PAGE;
+        if (downloadUrl == null) {
+            downloadUrl = RELEASE_PAGE;
+        }
 
-        return new UpdateInfo(latestVersion, downloadUrl,
-                isNewerVersion(latestVersion, currentVersion));
+        boolean updateAvailable
+                = isNewerVersion(latestVersion, currentVersion);
+
+        return new UpdateInfo(
+                latestVersion,
+                DOWNLOAD_PAGE,
+                updateAvailable
+        );
     }
 
     private static String findExeAsset(String json) {
@@ -68,7 +82,9 @@ public final class GitHubUpdateChecker {
         for (int i = 0; i < Math.max(a.length, b.length); i++) {
             int av = i < a.length ? a[i] : 0;
             int bv = i < b.length ? b[i] : 0;
-            if (av != bv) return av > bv;
+            if (av != bv) {
+                return av > bv;
+            }
         }
         return false;
     }
@@ -80,21 +96,30 @@ public final class GitHubUpdateChecker {
         for (int i = 0; i < pieces.length; i++) {
             Matcher number = Pattern.compile("^\\d+").matcher(pieces[i]);
             if (number.find()) {
-                try { result[i] = Integer.parseInt(number.group()); }
-                catch (NumberFormatException ignored) { result[i] = 0; }
+                try {
+                    result[i] = Integer.parseInt(number.group());
+                } catch (NumberFormatException ignored) {
+                    result[i] = 0;
+                }
             }
         }
         return result;
     }
 
     public static void openDownload(String url) throws IOException {
+        String target = (url == null || url.isBlank())
+                ? DOWNLOAD_PAGE : url;
+
         if (!Desktop.isDesktopSupported()) {
-            throw new IOException("This computer cannot open a browser automatically. Visit " + RELEASE_PAGE);
+            throw new IOException(
+                    "This computer cannot open a browser automatically. Visit " + target);
         }
-        Desktop.getDesktop().browse(URI.create(url == null ? RELEASE_PAGE : url));
+
+        Desktop.getDesktop().browse(URI.create(target));
     }
 
     public static final class UpdateInfo {
+
         private final String latestVersion;
         private final String downloadUrl;
         private final boolean updateAvailable;
@@ -104,8 +129,17 @@ public final class GitHubUpdateChecker {
             this.downloadUrl = downloadUrl;
             this.updateAvailable = updateAvailable;
         }
-        public String getLatestVersion() { return latestVersion; }
-        public String getDownloadUrl() { return downloadUrl; }
-        public boolean isUpdateAvailable() { return updateAvailable; }
+
+        public String getLatestVersion() {
+            return latestVersion;
+        }
+
+        public String getDownloadUrl() {
+            return downloadUrl;
+        }
+
+        public boolean isUpdateAvailable() {
+            return updateAvailable;
+        }
     }
 }
